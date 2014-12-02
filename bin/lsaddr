@@ -1,0 +1,78 @@
+#!/usr/bin/env ruby
+
+require "socket"
+require "optparse"
+
+# Select the correct method to select ifaddrs by
+def ip_version_test_method(options)
+  return :ip? if options[:ipv4] && options[:ipv6]
+  return :ipv6? if options[:ipv6]
+  return :ipv4? # default
+end
+
+def get_matching_ifaddrs(_method)
+  Socket.getifaddrs.select { |ifa| ifa.addr.__send__(_method) }
+end
+
+options = {
+  ipv4: false,
+  ipv6: false,
+  show_name: true,
+  show_address: true,
+  show_loopback: false
+}
+
+OptionParser.new do |opts|
+  opts.banner = <<EOF
+Usage: lsaddr [OPTION]... [INTERFACE]...
+Lists addresses of up network interfaces.
+EOF
+
+  opts.on("-4", "--ipv4", "Select IPv4 addresses") do
+    options[:ipv4] = true
+  end
+
+  opts.on("-6", "--ipv6", "Select IPv6 addresses") do
+    options[:ipv6] = true
+  end
+
+  opts.on("-a", "--all", "Show loopback interfaces") do
+    options[:show_loopback] = true
+  end
+
+  opts.on("-b", "--both", "Select both IPv4 and IPv6 addresses") do
+    options[:ipv4] = options[:ipv6] = true
+  end
+
+  opts.on("-i", "--interface-only", "Don't show address") do
+    options[:show_address] = false
+  end
+
+  opts.on("-s", "--address-only", "Don't show interface name") do
+    options[:show_name] = false
+  end
+end.parse!(ARGV)
+
+ifaddrs = get_matching_ifaddrs(ip_version_test_method(options))
+
+# select ifs from what's left of ARGV
+unless ARGV.empty?
+  selected_ifs = ARGV.map(&:downcase)
+  ifaddrs = ifaddrs.select { |ifa| selected_ifs.include?(ifa.name.downcase) }
+end
+
+exit if ifaddrs.empty?
+
+if options[:show_name]
+  longest_if_name_length = ifaddrs.map(&:name).sort_by(&:length).last.length
+  justification_width = [longest_if_name_length + 1, 8].max
+end
+
+ifaddrs.each do |ifa|
+  next if ifa.name == "lo" && !options[:show_loopback]
+
+  print ifa.name.ljust(justification_width) if options[:show_name]
+  print ifa.addr.ip_address if options[:show_address]
+
+  print "\n"
+end
