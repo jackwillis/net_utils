@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+
+require "optparse"
+require "netaddr"
+require "resolv"
+
+options = { subnet: "127.0.0.1/32", nameserver: "127.0.0.1" }
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: dnsenum [OPTION]..."
+
+  opts.on("-s", "--subnet SUBNET", "Subnet to enumerate") do |subnet|
+    options[:subnet] = subnet
+  end
+  opts.on("-n", "--nameserver NAMESERVER", "Nameserver to query") do |nameserver|
+    options[:nameserver] = nameserver
+  end
+end.parse!(ARGV)
+
+subnet = NetAddr::CIDR.create(options[:subnet]).enumerate rescue []
+resolver = Resolv::DNS.new(nameserver: options[:nameserver])
+
+subnet.each do |addr|
+  puts "#{addr}\t#{resolver.getname(addr) rescue ""}"
+end
