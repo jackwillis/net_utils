@@ -19,7 +19,7 @@ options = {
   ipv6: false,
   show_name: true,
   show_address: true,
-  show_loopback: false
+  show_loopback: false,
 }
 
 OptionParser.new do |opts|
@@ -63,16 +63,10 @@ end
 
 exit if ifaddrs.empty?
 
-if options[:show_name]
-  longest_if_name_length = ifaddrs.map(&:name).sort_by(&:length).last.length
-  justification_width = [longest_if_name_length + 1, 8].max
-end
-
-ifaddrs.each do |ifa|
-  next if ifa.name == "lo" && !options[:show_loopback]
-
-  print ifa.name.ljust(justification_width) if options[:show_name]
+data = ifaddrs.reject { |ifa|
+  ifa.name == "lo" && !options[:show_loopback]
+}.each do |ifa|
+  print ifa.name.ljust(12) if options[:show_name]
   print ifa.addr.ip_address if options[:show_address]
-
   print "\n"
 end
